@@ -94,6 +94,7 @@
     
 """
 
+from math import isinf
 from operator import attrgetter
 from types import NoneType
 import pdb
@@ -154,36 +155,37 @@ class Event(object):
 
     """
 
-    # by default, events are not global references That is reserved for the person class,
-    # where birth is the global reference
-
-    # replaced by 'isinstance(x,origin)' 
-    # isGlobalReference = property(lambda:False)
+    # default values for time and reftime
 
     def __init__(self,
-            reference=None,
+            # the time between the reference event and this event
             reftime=None,
-            time=None,
-            type=None,# 
-            ):
 
-        if time is not None and reftime is not None:
-            raise RuntimeError('Event initialized with both time and reftime')
+            # the reference object
+            reference=None,
+
+            # a string, tuple of strings, or list of strings to aid
+            # in searching for events. 
+            type=()): 
+
+        # store the reference event
         if reference is not None:
-            # implicicitly uses the reference setter property
-            self.reference = reference
-        if time is not None:
-            # implicicitly uses the time setter property
-            self.time = time # the time of the event relative to the reference frame
+            self.reference = reference # implicicitly uses the reference setter property
+            `
+        # the time of the event relative to the reference frame
         if reftime is not None:
-            self.__dict__['reftime'] = reftime # the time of the event relative to the reference frame
+            self.__dict__['reftime'] = reftime 
+            `
+        # store the 'type' tuple
         if isinstance(type,str):
             type = (type,)
         elif isinstance(type,list):
             type = tuple(type)
         self.type = type # a tuple that names the event type
+
+        # initialize the childen and prevented by lists
         self._children = []
-        self._preventedBy = False
+        self._preventedBy = []
 
     # --------------------------------------------------
     # prevented properties
@@ -197,7 +199,11 @@ class Event(object):
                 del self._preventedBy[i]
 
     def prevent(self,by):
-        if(by not in self._preventedBy )
+        if inherits(by,origin):
+            raise RuntimeError('An event cannot be prevented by an orign')
+        if self is by:
+            raise RuntimeError('An event cannot be prevented by itself')
+        if by not in self._preventedBy :
             self._preventedBy.append(by) 
 
     def _getTimePrevented(self):
@@ -208,17 +214,54 @@ class Event(object):
 
     TimePrevented = property(_getTimePrevented)
 
-    # a read only property
     def _prevented (self):
-        return self._prevented
+        """ An event is prevented if any of the prevention events 
+            occure prior to the event in the absence of prevention 
+            events.
+        """ 
+        return float(self) > min(x.time for x in self._preventedBy])
     prevented = property(_prevented)
+
+    # --------------------------------------------------
+    # time property
+    # --------------------------------------------------
+
+    def _getTime(self):
+        if 'reference' not in self.__dict__:
+            raise RuntimeError("Attempt to GET the time of an event before setting the event's reference attribute, OR no global reference found.")
+
+        refTime = self.reference.time 
+        if self.reftime is None or refTime is None:
+            return None
+        else:
+            return float(self.reftime) + refTime
+
+    time = property(_getTime)
+
+    # --------------------------------------------------
+    # redraw method
+    # --------------------------------------------------
+    def redraw(self):
+        """call the redraw method on self.reference.time or self.reference.reftime"""
+        try:
+            self.reference.time.redraw()
+        except AttributeError:
+            pass
+
+        try:
+            self.reference.reftime.redraw()
+        except AttributeError:
+            pass
 
     # --------------------------------------------------
     # Attribute Setter
     # --------------------------------------------------
     def __setattr__(self, name, value): 
+        """ The Set Attr method, which is reponsible for setting 
+            the double link between events for statements like: `e1.e2 = e2`
+        """
 
-        if name in ('time','reference',):
+        if name in ('reference',):
             # python calles setter methods in this order, so we have to bypass __setattr__
             # in order to get the property getter and setter methods defined below to handle 
             # the assighment. See this page for details:
@@ -228,20 +271,18 @@ class Event(object):
             object.__setattr__(self, name, value)
             return
 
-        if name == 'reftime':
-            if not isinstance(value, (NoneType,int,float)):
-                raise ValueError('Time to reference event must be numeric (float, int, or None)')
-
         if isinstance(value,Event):
-            if 'reference' in value.__dict__ :
-                if value.reference is not self:
-                    raise AttributeError('Attempt to add two reference to a single event')
+            if ('reference' in value.__dict__ 
+                    and value.reference is not self):
+                raise AttributeError('Attempt to add two reference to a single event')
 
             # PREVENT CIRCULAR PARENT/CHILD REFERENCES 
             tmp = value
             while 'reference' in tmp.__dict__:
+                if(inherits(tmp,origin))
+                    break
                 if tmp is self:
-                    raise ValueError("Attempt to add a Event as a child of an ancestor. Circular references are forbidden")
+                    raise ValueError("Circular Reference Error: attempt to add a Event as a child of an ancestor.")
                 tmp = tmp.reference
 
             # ADD SELF AS THE EVENT'S NEW 'REFERENCE' ATTIRUBTE
@@ -268,9 +309,7 @@ class Event(object):
             # this propogates the delete on to the '__delReferenceEvent()' method below
             return
 
-        # this has to be an ELIF (b/c the self.__dict__['reference'] is also an event...
-        elif isinstance(self.__dict__[name],event): 
-
+        if isinstance(self.__dict__[name],event): 
             # NO CIRCULAR REFERENCES PLEASE, hence the following line
             # is NOT !!:  self.__dict__[name].reference
             del self.__dict__[name].__dict__['reference']
@@ -278,37 +317,10 @@ class Event(object):
         del self.__dict__[name] 
 
     # --------------------------------------------------
-    # time property
+    # 
     # --------------------------------------------------
-
-    def getTime(self):
-        if 'reference' not in self.__dict__:
-            raise RuntimeError("Attempt to GET the time of an event before setting the event's reference attribute, OR no global reference found.")
-        else:
-            refTime = self.reference.time 
-            if self.reftime is None or refTime is None:
-                return None
-            else:
-                return self.reftime + refTime
-
-    def setTime(self,time):
-        if 'reference' not in self.__dict__:
-            raise RuntimeError("Attempt to SET the time of an event before setting the event's reference attribute")
-        if self.reference.time is None:
-            pdb.set_trace()
-        if time is not None:
-            self.reftime = time - self.reference.time
-        else: 
-            self.reftime = None
-
-    time = property(getTime,setTime)
-
-
-    # --------------------------------------------------
-    # get global event
-    # --------------------------------------------------
-    #def getGlobalEvent(self):
     def _origin(self):
+        """ Retruns the origin event which is an ancestor to self. """
         this = self
         while True:
             if 'reference' not in self.__dict__:
@@ -463,130 +475,6 @@ class Event(object):
                 return None
         else:
             return out
-
-
-maxEventProcessCalls = 100
-
-class origin(Event):
-
-
-    def unpreventALL(self):
-        pass
-
-    def unprevent(self,by):
-        pass
-
-    def prevent(self,by):
-        raise RuntimeError('cannot prevent an origin')
-            self._preventedBy.append(by) 
-
-    def _getTimePrevented(self):
-        if(len(self._preventedBy)):
-            return min([x.time for time in self._preventedBy])
-        else :
-            return float('inf')
-
-
-    # PROPERTIES
-    time = property(lambda:0)
-    # replaced by 'isinstance(x,origin)' 
-    #isGlobalReference = property(lambda:True)
-    reference = property(lambda:raise RuntimeError('the origin has no reference event'))
-
-    TimePrevented = property(lambda:float('inf'))
-
-    prevented = property(lambda:False)
-    origin = property(lambda self: self)
-
-    def __init__(self,*args,**kwargs):
-        """initialzation for an event origin."""
-        super(origin, self).__init__(*args,**kwargs)
-        self.eventState = ()
-    
-    def processEvents(self):
-        """ this function calls all the events in order of time and allows them 
-            to be processed, which allows events to be responsive to one
-            another. 
-
-            Specifically, some events may be dependent on the occurance
-            of another event.  For example, Tubal ligation is not possible
-            after tubes are removed, and women may be at lower risk after
-            a tubal ligation.
-
-
-            Event processing happens in order by time, and the event should
-            only respond by deleting it's reference (in the case that the event
-            does not happen because of an earlier event), or (if it is a 
-            distributed event),  by accelerating (decelerating) it's distribution
-            at the time of the event that event that affect's it's risk of 
-            occuring by calling event.accelerate() [or better still, by calling
-            event.setChangePoints() with a list of event ages and RR's]
-        """
-
-        if len(self.eventState):
-            raise RuntimeError('nested calls to origin.process() are not allowed')
-
-        events = self.getEvents(type=lambda x:True,
-                                    includePrevented=True,
-                                    includeNoneTimes=True,
-                                    deepQuery=True,
-                                    ordered=False)
-        eventState = tuple( (e.time,e) for e in events)
-        self.eventState = eventState
-        
-        processedEvents = 0
-        while True:
-            for e in events: 
-                # --------------------------------------------------
-                # It's important to avoid processing an event twice
-                # with the same set of prior events, in order to prevent
-                # infintite update loops.  
-                # so we'll record a list of events that occured before this on
-                # at the outset, and only re-update the event in case the set 
-                # of prior events has changed between loops. 
-                # --------------------------------------------------
-                # get a list of events that occured prior to the current event
-                if e.time is None:
-                    # any event with a numeric time occured before an event with a None time (None == Inf)
-                    priorEvents = self.getEvents(type=lambda x: True ,deepQuery=True,includeNoneTimes=False)
-                else:
-                    priorEvents = self.getEvents(type=lambda x: x.time is not None and x.time < e.time)
-                # the tuple will change if the event Times change...
-                priorEventsTuple = tuple( (e.time,e) for e in priorEvents)
-                if hasattr(e,'_processedFor'):
-                    if e._processedFor == priorEventsTuple:
-                        # don't process the same event twice.  (otherwise a race condition may occure)
-    #--                         print 'skipping -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-='
-                        continue
-                    else: 
-                        # the event history has changed, so we need to re-set the event to it's
-                        # initial state so as to keep the event processsing itempotent.
-
-                        # FIXME: this needs to be more generic than a call to a method specific to 
-                        # the DistributedEvent class. Something like event.Reset, perhaps
-                        if hasattr(e,'_resetCDF'):
-                            e._resetCDF()
-                e._processedFor = priorEventsTuple
-                eventTimeBeforeProcessing = e.time
-                e.process()
-                if eventTimeBeforeProcessing != e.time:
-                    processedEvents += 1
-                if processedEvents > maxEventProcessCalls:
-                    raise RuntimeError('Number of event.process() calles exceeds maxEventProcessCalls.  Possible race condition.')
-
-            events = self.getEvents(type=lambda x:True,
-                                        includePrevented=True,
-                                        includeNoneTimes=True,
-                                        deepQuery=True,
-                                        ordered=False)
-            eventState = tuple( (e.time,e) for e in events)
-            if eventState == self.eventState:
-                break
-            self.eventState = eventState
-
-        #RESET THE eventsState...
-        self.eventState = ()
-
 
 
 
