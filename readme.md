@@ -50,24 +50,26 @@ the framework witch desribes how the events relate to one another
 without worrying about parameterizing the timing of the events.
 
 
-	# create a new origin 
-	Person = Origin()
+```Python
+# create a new origin 
+Person = Origin()
 
-	# create the individual events
-	OvarianCancer = Event(...) # parameters to be discussed below
-	CancerDeath = Event(...) 
-	Salpingectomy = Event(...)
-	DeathFromOtherCauses = Event(...)
+# create the individual events
+Cancer_Diagnosis = Event(...) # parameters to be discussed below
+Cancer_Death = Event(...) 
+Salpingectomy = Event(...)
+Death_Other_Causes = Event(...)
 
-	# Relate the events to each other using the dot operator
-	OvarianCancer.CancerDeath = CancerDeath
-	Person.OvarianCancer = OvarianCancer
-	Person.Salpingectomy = Salpingectomy
-
+# Relate the events to each other using the dot operator
+Cancer_Diagnosis.Cancer_Death = Cancer_Death
+Person.Cancer_Diagnosis = Cancer_Diagnosis
+Person.Salpingectomy = Salpingectomy
+Person.Death_Other_Causes = Death_Other_Causes
+```
 
 In the above code, after creating the events, we've specified that the
 time of cancer death is measured relative to the timing of cancer 
-diagnosis and that time timing of salpingectomy and death from 
-other cuases is specified relative to the person's birth
+diagnosis and that time timing of cancer diagnosis, salpingectomy 
+and death from other cuases is specified relative to the person's birth.
 
 
